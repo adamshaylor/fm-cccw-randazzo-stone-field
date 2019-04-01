@@ -1,0 +1,18 @@
+{
+  "name": "fm-cccw-randazzo-stone-field",
+  "version": "1.0.0",
+  "description": "",
+  "main": "webgl.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "canvas-sketch": "^0.2.0",
+    "canvas-sketch-util": "^1.6.2",
+    "eslint": "^5.16.0",
+    "three": "^0.103.0"
+  }
+}
