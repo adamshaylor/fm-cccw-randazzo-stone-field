@@ -9,13 +9,16 @@ require('three/examples/js/controls/OrbitControls');
  * Input
  */
 
+const sceneParams = require('./scene');
+
 const settings = {
   animate: true,
   context: 'webgl',
   attributes: { antialias: true }
 };
 
-const surfaceNoiseAmplitude = 0.2;
+const stoneVariationCount = 10;
+const surfaceNoiseAmplitude = 0.3;
 const surfaceNoiseFrequency = 1.5;
 const widthAndHeightSegmentsPerStone = 16;
 
@@ -29,28 +32,7 @@ console.log('seed:', seed);
  * Process
  */
 
-
- /**
-  * Output
-  */
-
-const sketch = ({ context }) => {
-  const renderer = new THREE.WebGLRenderer({
-    context
-  });
-
-  renderer.setClearColor('#000', 1);
-
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-  camera.position.set(2, 2, -4);
-  camera.lookAt(new THREE.Vector3());
-
-  // Setup camera controller
-  const controls = new THREE.OrbitControls(camera);
-
-  // Setup your scene
-  const scene = new THREE.Scene();
-
+const cachedStoneGeometries = Array.from({ length: stoneVariationCount }, () => {
   const geometry = new THREE.SphereGeometry(1, widthAndHeightSegmentsPerStone, widthAndHeightSegmentsPerStone);
 
   // See three/examples/webgl_geometry_convex.html
@@ -67,24 +49,72 @@ const sketch = ({ context }) => {
     vertex.add(surfaceDistortion);
   });
 
+  return geometry;
+});
+
+const addStoneToScene = ({
+  circle: { x, y, r },
+  scene
+}) => {
+  const geometry = random.pick(cachedStoneGeometries);
+
   const mesh = new THREE.Mesh(
-    // new THREE.BoxGeometry(1, 1, 1)
     geometry,
-    new THREE.MeshPhysicalMaterial({
+    new THREE.MeshStandardMaterial({
       color: 'white',
-      roughness: 0.75,
-      flatShading: true
+      roughness: 0.8,
+      metalness: 0.7,
+      flatShading: false
     })
   );
+
+  mesh.position.x = x;
+  mesh.position.y = y;
+  mesh.position.z += r;
+  mesh.scale = new THREE.Vector3(r, r, r);
   scene.add(mesh);
+};
+
+ /**
+  * Output
+  */
+
+const sketch = ({ context }) => {
+  const renderer = new THREE.WebGLRenderer({
+    context
+  });
+
+  renderer.setClearColor(sceneParams.clearColor, 1);
+
+  const camera = new THREE.PerspectiveCamera(...sceneParams.cameraArguments);
+  camera.position.set(...sceneParams.cameraPosition);
+  camera.lookAt(new THREE.Vector3(...sceneParams.cameraLookAt));
+
+  // Setup camera controller
+  const controls = new THREE.OrbitControls(camera);
+
+  // Setup your scene
+  const scene = new THREE.Scene();
+
+  sceneParams.circles.forEach(circle => addStoneToScene({ circle, scene }));
+
+  // TODO: why does this not show up?
+  const planeGeometry = new THREE.PlaneGeometry(50, 50);
+  const planeMaterial = new THREE.ShadowMaterial();
+  planeMaterial.opacity = 0.2;
+  const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+  planeMesh.receiveShadow = true;
+  scene.add(planeMesh);
 
   // Specify an ambient/unlit colour
-  scene.add(new THREE.AmbientLight('#59314f'));
+  scene.add(new THREE.AmbientLight(...sceneParams.ambientLightArguments));
 
   // Add some light
-  const light = new THREE.PointLight('#45caf7', 1, 15.5);
-  light.position.set(2, 2, -4).multiplyScalar(1.5);
-  scene.add(light);
+  sceneParams.pointLights.forEach(pointLight => {
+    const light = new THREE.PointLight(...pointLight.args);
+    light.position.set(...pointLight.position);
+    scene.add(light);
+  });
 
   // draw each frame
   return {
@@ -96,8 +126,7 @@ const sketch = ({ context }) => {
       camera.updateProjectionMatrix();
     },
     // Update & render your scene here
-    render ({ time }) {
-      mesh.rotation.y = time * (10 * Math.PI / 180);
+    render () {
       controls.update();
       renderer.render(scene, camera);
     },
