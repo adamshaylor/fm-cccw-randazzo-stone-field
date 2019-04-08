@@ -57,21 +57,22 @@ const addStoneToScene = ({
   scene
 }) => {
   const geometry = random.pick(cachedStoneGeometries);
-
   const mesh = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
-      color: 'white',
+      color: '#dcdcdc',
       roughness: 0.8,
-      metalness: 0.7,
+      metalness: 0.5,
       flatShading: false
     })
   );
 
   mesh.position.x = x;
   mesh.position.y = y;
+  // Make the rocks look like they're sitting instead of floating
   mesh.position.z += r;
   mesh.scale = new THREE.Vector3(r, r, r);
+  mesh.castShadow = true;
   scene.add(mesh);
 };
 
@@ -84,7 +85,7 @@ const sketch = ({ context }) => {
     context
   });
 
-  renderer.setClearColor(sceneParams.clearColor, 1);
+  renderer.shadowMap.enabled = true;
 
   const camera = new THREE.PerspectiveCamera(...sceneParams.cameraArguments);
   camera.position.set(...sceneParams.cameraPosition);
@@ -95,26 +96,28 @@ const sketch = ({ context }) => {
 
   // Setup your scene
   const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#f0f0f0');
 
   sceneParams.circles.forEach(circle => addStoneToScene({ circle, scene }));
 
-  // TODO: why does this not show up?
-  const planeGeometry = new THREE.PlaneGeometry(50, 50);
+  const planeGeometry = new THREE.PlaneGeometry(10, 10);
   const planeMaterial = new THREE.ShadowMaterial();
   planeMaterial.opacity = 0.2;
   const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
   planeMesh.receiveShadow = true;
   scene.add(planeMesh);
 
-  // Specify an ambient/unlit colour
-  scene.add(new THREE.AmbientLight(...sceneParams.ambientLightArguments));
+  scene.add(new THREE.AmbientLight('#ffffff'));
 
-  // Add some light
-  sceneParams.pointLights.forEach(pointLight => {
-    const light = new THREE.PointLight(...pointLight.args);
-    light.position.set(...pointLight.position);
-    scene.add(light);
-  });
+  const pointLight = new THREE.PointLight('#ffffff', 1, 80);
+  pointLight.position.set(0, 10, 20);
+  pointLight.castShadow = true;
+  pointLight.shadow.radius = 10;
+  pointLight.shadow.mapSize.width = 2048;
+  pointLight.shadow.mapSize.height = 2048;
+  pointLight.shadow.camera.near = 1;
+  pointLight.shadow.camera.far = 100;
+  scene.add(pointLight);
 
   // draw each frame
   return {
