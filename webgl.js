@@ -9,7 +9,14 @@ require('three/examples/js/controls/OrbitControls');
  * Input
  */
 
-const sceneParams = require('./scene');
+const circles = require('fm-cccw-circle-field/example_options/ellen-mcfadden.output.json').map(({ x, y, r }) => {
+  // This data operates with a 2048x2048 2D canvas with an origin at the top left
+  return {
+    x: x - 1024,
+    y: -1 * y + 1024,
+    r
+  };
+});
 
 const settings = {
   animate: true,
@@ -18,8 +25,8 @@ const settings = {
 };
 
 const stoneVariationCount = 10;
-const surfaceNoiseAmplitude = 0.3;
-const surfaceNoiseFrequency = 1.5;
+const surfaceNoiseAmplitude = 0.4;
+const surfaceNoiseFrequency = 1.2;
 const widthAndHeightSegmentsPerStone = 16;
 
 const seed = random.getRandomSeed();
@@ -56,6 +63,7 @@ const addStoneToScene = ({
   circle: { x, y, r },
   scene
 }) => {
+  // TODO: Why do these all look the same? Is it because of the simplex noise, or something else?
   const geometry = random.pick(cachedStoneGeometries);
   const mesh = new THREE.Mesh(
     geometry,
@@ -69,16 +77,20 @@ const addStoneToScene = ({
 
   mesh.position.x = x;
   mesh.position.y = y;
-  // Make the rocks look like they're sitting instead of floating
-  mesh.position.z += r;
-  mesh.scale = new THREE.Vector3(r, r, r);
+  mesh.position.z = r;
+  mesh.rotateX(random.value() * Math.PI * 2);
+  mesh.rotateY(random.value() * Math.PI * 2);
+  mesh.rotateZ(random.value() * Math.PI * 2);
+  mesh.scale.set(r, r, r);
   mesh.castShadow = true;
+  mesh.receiveShadow = true;
   scene.add(mesh);
 };
 
- /**
-  * Output
-  */
+
+/**
+ * Output
+ */
 
 const sketch = ({ context }) => {
   const renderer = new THREE.WebGLRenderer({
@@ -87,36 +99,44 @@ const sketch = ({ context }) => {
 
   renderer.shadowMap.enabled = true;
 
-  const camera = new THREE.PerspectiveCamera(...sceneParams.cameraArguments);
-  camera.position.set(...sceneParams.cameraPosition);
-  camera.lookAt(new THREE.Vector3(...sceneParams.cameraLookAt));
+  const camera = new THREE.PerspectiveCamera(30, 1, 10, 10000);
+  camera.position.set(0, 0, 5000);
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
 
   // Setup camera controller
   const controls = new THREE.OrbitControls(camera);
 
   // Setup your scene
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#f0f0f0');
+  scene.background = new THREE.Color('#dadadf');
 
-  sceneParams.circles.forEach(circle => addStoneToScene({ circle, scene }));
+  // const axesHelper = new THREE.AxesHelper(5);
+  // scene.add(axesHelper);
+  // const gridSize = 2048;
+  // const gridDivisions = 100;
+  // const gridHelper = new THREE.GridHelper(gridSize, gridDivisions);
+  // gridHelper.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+  // scene.add(gridHelper);
 
-  const planeGeometry = new THREE.PlaneGeometry(10, 10);
+  circles.forEach(circle => addStoneToScene({ circle, scene }));
+
+  const planeGeometry = new THREE.PlaneGeometry(3048, 3048);
   const planeMaterial = new THREE.ShadowMaterial();
   planeMaterial.opacity = 0.2;
   const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
   planeMesh.receiveShadow = true;
   scene.add(planeMesh);
 
-  scene.add(new THREE.AmbientLight('#ffffff'));
+  scene.add(new THREE.AmbientLight(0xfaffff));
 
-  const pointLight = new THREE.PointLight('#ffffff', 1, 80);
-  pointLight.position.set(0, 10, 20);
+  const pointLight = new THREE.PointLight('#ffffff', 0.8, 100000);
+  pointLight.position.set(0, 1000, 2000);
   pointLight.castShadow = true;
-  pointLight.shadow.radius = 10;
+  pointLight.shadow.radius = 1;
   pointLight.shadow.mapSize.width = 2048;
   pointLight.shadow.mapSize.height = 2048;
-  pointLight.shadow.camera.near = 1;
-  pointLight.shadow.camera.far = 100;
+  pointLight.shadow.camera.near = 100;
+  pointLight.shadow.camera.far = 4000;
   scene.add(pointLight);
 
   // draw each frame

@@ -13,6 +13,7 @@
     "canvas-sketch": "^0.2.0",
     "canvas-sketch-util": "^1.6.2",
     "eslint": "^5.16.0",
+    "fm-cccw-circle-field": "github:adamshaylor/fm-cccw-circle-field",
     "three": "^0.103.0"
   }
 }
