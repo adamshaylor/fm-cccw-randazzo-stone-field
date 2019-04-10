@@ -17,6 +17,7 @@
     "glsl-hsl2rgb": "^1.1.0",
     "glsl-noise": "0.0.0",
     "glslify": "^7.0.0",
+    "ndarray": "^1.0.18",
     "three": "^0.103.0"
   }
 }
