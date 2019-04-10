@@ -3,6 +3,7 @@ const random = require('canvas-sketch-util/random');
 const THREE = require('three');
 global.THREE = THREE;
 require('three/examples/js/controls/OrbitControls');
+const glslify = require('glslify');
 
 
 /**
@@ -24,9 +25,9 @@ const settings = {
   attributes: { antialias: true }
 };
 
-const stoneVariationCount = 10;
-const surfaceNoiseAmplitude = 0.4;
-const surfaceNoiseFrequency = 1.2;
+// const stoneVariationCount = 10;
+// const surfaceNoiseAmplitude = 0.4;
+// const surfaceNoiseFrequency = 1.2;
 const widthAndHeightSegmentsPerStone = 16;
 
 const seed = random.getRandomSeed();
@@ -39,54 +40,90 @@ console.log('seed:', seed);
  * Process
  */
 
-const cachedStoneGeometries = Array.from({ length: stoneVariationCount }, () => {
-  const geometry = new THREE.SphereGeometry(1, widthAndHeightSegmentsPerStone, widthAndHeightSegmentsPerStone);
+const vertexShader = glslify(/* glsl */`
+varying vec2 vUv;
+uniform float time;
+#pragma glslify: noise = require('glsl-noise/simplex/4d');
 
-  // See three/examples/webgl_geometry_convex.html
-  geometry.vertices.forEach(vertex => {
-    const randomXyz = Array.from({ length: 3 }, (_, index) => random.noise4D(
-      vertex.x,
-      vertex.y,
-      vertex.z,
-      index,
-      surfaceNoiseFrequency,
-      surfaceNoiseAmplitude
-    ));
-    const surfaceDistortion = new THREE.Vector3(...randomXyz);
-    vertex.add(surfaceDistortion);
-  });
+void main () {
+  vUv = uv;
+  vec3 transformed = position.xyz;
+  float offset = 0.0;
+  offset += 0.5 * (noise(vec4(normal.xyz * 1.0, time * 0.25)) * 0.5 + 0.5);
+  transformed += normal * offset;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+}
+`);
 
-  return geometry;
-});
+const fragmentShader = glslify(/* glsl */`
+varying vec2 vUv;
+uniform float time;
+#pragma glslify: hsl2rgb = require('glsl-hsl2rgb');
+void main () {
+  vec3 color = hsl2rgb(mod(vUv.y * 0.1 + time * 0.1, 1.0), 0.5, 0.5);
+  gl_FragColor = vec4(color, 1.0);
+  if (!gl_FrontFacing) {
+    gl_FragColor = vec4(color * 0.25, 1.0);
+  }
+}
+`);
 
-const addStoneToScene = ({
-  circle: { x, y, r },
-  scene
-}) => {
-  // TODO: Why do these all look the same? Is it because of the simplex noise, or something else?
-  const geometry = random.pick(cachedStoneGeometries);
+// const cachedStoneGeometries = Array.from({ length: stoneVariationCount }, () => {
+//   const geometry = new THREE.SphereGeometry(1, widthAndHeightSegmentsPerStone, widthAndHeightSegmentsPerStone);
+
+//   // See three/examples/webgl_geometry_convex.html
+//   geometry.vertices.forEach(vertex => {
+//     const randomXyz = Array.from({ length: 3 }, (_, index) => random.noise4D(
+//       vertex.x,
+//       vertex.y,
+//       vertex.z,
+//       index,
+//       surfaceNoiseFrequency,
+//       surfaceNoiseAmplitude
+//     ));
+//     const surfaceDistortion = new THREE.Vector3(...randomXyz);
+//     vertex.add(surfaceDistortion);
+//   });
+
+//   return geometry;
+// });
+
+const sphereGeometry = new THREE.SphereGeometry(1, widthAndHeightSegmentsPerStone, widthAndHeightSegmentsPerStone);
+
+const circleToMesh = ({ x, y, r }) => {
+  // const geometry = random.pick(cachedStoneGeometries);
   const mesh = new THREE.Mesh(
-    geometry,
-    new THREE.MeshStandardMaterial({
-      color: '#dcdcdc',
-      roughness: 0.8,
-      metalness: 0.5,
-      flatShading: false
+    sphereGeometry,
+    // new THREE.MeshStandardMaterial({
+    //   color: '#dcdcdc',
+    //   roughness: 0.8,
+    //   metalness: 0.5,
+    //   flatShading: false
+    // })
+    new THREE.ShaderMaterial({
+      flatShading: true,
+      side: THREE.DoubleSide,
+      vertexShader,
+      fragmentShader,
+      uniforms: {
+        time: { value: 0 }
+      }
     })
   );
 
   mesh.position.x = x;
   mesh.position.y = y;
   mesh.position.z = r;
-  mesh.rotateX(random.value() * Math.PI * 2);
-  mesh.rotateY(random.value() * Math.PI * 2);
-  mesh.rotateZ(random.value() * Math.PI * 2);
+  // mesh.rotateX(random.value() * Math.PI * 2);
+  // mesh.rotateY(random.value() * Math.PI * 2);
+  // mesh.rotateZ(random.value() * Math.PI * 2);
   mesh.scale.set(r, r, r);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  scene.add(mesh);
+  return mesh;
 };
 
+const meshes = circles.map(circleToMesh);
 
 /**
  * Output
@@ -118,7 +155,7 @@ const sketch = ({ context }) => {
   // gridHelper.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
   // scene.add(gridHelper);
 
-  circles.forEach(circle => addStoneToScene({ circle, scene }));
+  meshes.forEach(mesh => scene.add(mesh));
 
   const planeGeometry = new THREE.PlaneGeometry(3048, 3048);
   const planeMaterial = new THREE.ShadowMaterial();
@@ -149,8 +186,10 @@ const sketch = ({ context }) => {
       camera.updateProjectionMatrix();
     },
     // Update & render your scene here
-    render () {
-      controls.update();
+    render ({ time }) {
+      meshes.forEach(mesh => {
+        mesh.material.uniforms.time.value = time;
+      });
       renderer.render(scene, camera);
     },
     // Dispose of events & renderer for cleaner hot-reloading

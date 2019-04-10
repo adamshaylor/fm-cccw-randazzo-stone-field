@@ -14,6 +14,9 @@
     "canvas-sketch-util": "^1.6.2",
     "eslint": "^5.16.0",
     "fm-cccw-circle-field": "github:adamshaylor/fm-cccw-circle-field",
+    "glsl-hsl2rgb": "^1.1.0",
+    "glsl-noise": "0.0.0",
+    "glslify": "^7.0.0",
     "three": "^0.103.0"
   }
 }
